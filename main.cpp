@@ -37,6 +37,7 @@ std::vector<ROB> instuction_data;
 std::vector<ROB> dispatch_queue;
 std::vector<ROB> schedule_queue;
 std::vector<ROB> ex_queue;
+std::vector<ROB> wb_queue;
 unsigned int cycle_count = 0;
 
 unsigned int schedule_size = 0;
@@ -47,8 +48,8 @@ std::string trace_file = "";
 
 void execute(unsigned int n_size, unsigned int s_size);
 void issue(unsigned int n_size, unsigned int s_size);
-//void dispatch(unsigned int n_size, unsigned int s_size);
-//void fetch(unsigned int n_size, unsigned int s_size);
+void dispatch(unsigned int n_size, unsigned int s_size);
+void fetch(unsigned int n_size, unsigned int s_size);
 
 int main(int argc, char *argv[])
 {
@@ -134,8 +135,8 @@ int main(int argc, char *argv[])
     {
         execute(peak_rate, schedule_size);
         issue(peak_rate, schedule_size);
-        //dispatch(peak_rate, schedule_size);
-        //fetch(peak_rate, schedule_size);
+        dispatch(peak_rate, schedule_size);
+        fetch(peak_rate, schedule_size);
 
         cycle_count++;
     }
@@ -164,7 +165,9 @@ void execute(unsigned int n_size, unsigned int s_size)
                         schedule_queue[j].src2_flag = "ready";
                     }
                 }
-
+                // store final details of instruction for output
+                wb_queue.push_back(ex_queue[i]);
+                // ex_queue space
                 ex_queue.erase(ex_queue.begin() + (i - 1));
             }
             else
@@ -200,14 +203,18 @@ void issue(unsigned int n_size, unsigned int s_size)
             {
                 // update state since both src reg are ready
                 schedule_queue[i].state = "ex";
+                schedule_queue[i].EX_cycle = cycle_count;
 
                 // push the updated instruction to ex queue till (n_size+1)
                 if (ex_queue.size() <= (n_size + 1))
                 {
                     ex_queue.push_back(schedule_queue[i]);
-                    //remove it from schedule queue
+                    //free schedule_queue space
                     schedule_queue.erase(schedule_queue.begin() + (i - 1));
                 }
+            }
+            else if(schedule_queue[i].src1_flag != "ready" | schedule_queue[i].src2_flag != "ready"){
+                schedule_queue[i].IS_duration++; // increment stall in IS state
             }
         }
     }
@@ -231,8 +238,38 @@ void fetch(unsigned int n_size, unsigned int s_size)
                 {
                     // change empty state to IF state
                     dispatch_queue[i].state = "if";
+                    dispatch_queue[i].IF_cycle = cycle_count; // capture cycle count at state change to IF
                 }
             }
+        }
+    }
+}
+void dispatch(unsigned int n_size, unsigned int s_size)
+{
+    for (int i = 0; i < dispatch_queue.size(); i++)
+    {
+        if (dispatch_queue[i].state == "id")
+        {
+            if (schedule_queue.size() < s_size)
+            {
+                dispatch_queue[i].state = "is"; // change state to IS
+                dispatch_queue[i].IS_cycle = cycle_count; // capture cycle count at state change
+
+                schedule_queue.push_back(dispatch_queue[i]);
+                dispatch_queue.erase(dispatch_queue.begin() + (i - 1)); // free dispatch queue space
+            }
+            else if(schedule_queue.size() == s_size) // if schedue queue full
+            {
+                //increment stall in ID state
+                dispatch_queue[i].ID_duration++;
+            }
+        }
+        else if (dispatch_queue[i].state == "if") // unconditional IF to ID transition
+        {
+            dispatch_queue[i].state = "id";
+            dispatch_queue[i].IF_duration++;
+            
+            dispatch_queue[i].ID_cycle = cycle_count; // capture cycle count at state change to ID
         }
     }
 }
