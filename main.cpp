@@ -11,13 +11,13 @@
 
 struct ROB
 {
-    std::string op_type = "";
-     int dest_reg = 0;
-     int src_reg1 = 0;
-     int src_reg2 = 0;
-    unsigned int dest_tag = 0;
-    unsigned int src1_tag = 0;
-    unsigned int src2_tag  = 0;
+    int op_type = 0;
+    int dest_reg = 0;
+    int src_reg1 = 0;
+    int src_reg2 = 0;
+    std::string dest_flag = "";
+    std::string src1_flag = "ready";
+    std::string src2_flag = "ready";
     std::string state = ""; // IF, ID, IS, EX, WB
     unsigned int IF_duration = 0;
     unsigned int ID_duration = 0;
@@ -29,11 +29,10 @@ struct ROB
     unsigned int IS_cycle = 0;
     unsigned int EX_cycle = 0;
     unsigned int WB_cycle = 0;
-    
+
     unsigned int ex_stall = 0;
 };
 
-std::vector<int> register_file;
 std::vector<ROB> instuction_data;
 std::vector<ROB> dispatch_queue;
 std::vector<ROB> schedule_queue;
@@ -48,8 +47,8 @@ std::string trace_file = "";
 
 void execute();
 void issue();
-void dispatch();
-void fetch();
+//void dispatch();
+//void fetch();
 
 int main(int argc, char *argv[])
 {
@@ -58,17 +57,16 @@ int main(int argc, char *argv[])
     peak_rate = strtoul(argv[2], &pCh, 10);
     trace_file = argv[argc - 1];
 
-
     // resize lists
     dispatch_queue.resize(peak_rate * 2);
     schedule_queue.resize(schedule_size);
-    ex_queue.resize(peak_rate+1);
-    register_file.resize(schedule_queue);
+    ex_queue.resize(peak_rate + 1);
+    
 
     std::cout << dispatch_queue.size() << std::endl;
     std::cout << ex_queue.size() << std::endl;
     std::cout << schedule_queue.size() << std::endl;
-    
+
     std::string token = "";
     std::vector<std::string> input;
     unsigned int hexAd = 0;
@@ -110,20 +108,19 @@ int main(int argc, char *argv[])
         std::stringstream(input[2]) >> instuction_data[i].dest_reg;
         std::stringstream(input[3]) >> instuction_data[i].src_reg1;
         std::stringstream(input[4]) >> instuction_data[i].src_reg2;
-        if(instuction_data[i].op_type == 0){
+        if (instuction_data[i].op_type == 0)
+        {
             instuction_data[i].ex_stall = 1;
         }
-        else if(instuction_data[i].op_type == 1){
+        else if (instuction_data[i].op_type == 1)
+        {
             instuction_data[i].ex_stall = 1;
-
         }
-        else if(instuction_data[i].op_type == 2){
+        else if (instuction_data[i].op_type == 2)
+        {
             instuction_data[i].ex_stall = 1;
-            
         }
-        instuction_data[i].dest_tag = i;
-        
-        
+        //instuction_data[i].dest_tag = i;
     }
     /*for (int i = 0; i < instuction_data.size(); i++)
     {
@@ -134,32 +131,81 @@ int main(int argc, char *argv[])
         std::cout << instuction_data[i].tag << std::endl;
 
     }*/
-    while(cycle_count < file_content.size()){
+    while (cycle_count < file_content.size())
+    {
         execute();
         issue();
-        dispatch();
-        fetch();
+        //dispatch();
+        //fetch();
 
         cycle_count++;
     }
-
 }
 
-void execute(){
-    for(int i = 0; i < ex_queue.size(); i++){
-        if(ex_queue[i].state == "ex"){
-            if(ex_queue[i].EX_duration == ex_queue[i].ex_stall){
+void execute()
+{
+    for (int i = 0; i < ex_queue.size(); i++)
+    {
+        if (ex_queue[i].state == "ex")
+        {
+            if (ex_queue[i].EX_duration == ex_queue[i].ex_stall)
+            {
                 ex_queue[i].state == "wb";
+
+                // update sr
+
+                for (int j = 1; j < schedule_queue.size(); j++)
+                {
+                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1)
+                    {
+                        schedule_queue[j].src1_flag = "ready";
+                    }
+                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2)
+                    {
+                        schedule_queue[j].src2_flag = "ready";
+                    }
+                }
+
+                ex_queue.erase(ex_queue.begin() + (i - 1));
             }
-        else{
-            ex_queue[i].EX_duration++;
-        }
+            else
+            {
+                ex_queue[i].EX_duration++;
+            }
         }
     }
 }
 
-void fetch{
-    for(int i = 0; i < dispatch_queue.size(); i++){
-
+void issue()
+{
+    for (int i = 0; i < schedule_queue.size(); i++)
+    {
+        for (int j = 1; j < schedule_queue.size(); j++)
+        {
+            if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1)
+            {
+                schedule_queue[j].src1_flag = "not";
+            }
+            if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2)
+            {
+                schedule_queue[j].src2_flag = "not";
+            }
+        }
+    }
+    for (int i = 0; i < schedule_queue.size(); i++)
+    {
+        if (schedule_queue[i].state == "is")
+        {
+            //check if both regs are ready
+            if (schedule_queue[i].src1_flag == "ready" & schedule_queue[i].src2_flag == "ready")
+            {
+                // update state since both src reg are ready
+                schedule_queue[i].state = "ex";
+                // push the updated instruction to ex queue
+                ex_queue.push_back(schedule_queue[i]);
+                //remove it from schedule queue
+                schedule_queue.erase(schedule_queue.begin() + (i - 1));
+            }
+        }
     }
 }
