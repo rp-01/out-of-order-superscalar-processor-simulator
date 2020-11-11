@@ -45,10 +45,10 @@ unsigned int peak_rate = 0;
 std::vector<std::string> file_content;
 std::string trace_file = "";
 
-void execute();
-void issue();
-//void dispatch();
-//void fetch();
+void execute(unsigned int n_size, unsigned int s_size);
+void issue(unsigned int n_size, unsigned int s_size);
+//void dispatch(unsigned int n_size, unsigned int s_size);
+//void fetch(unsigned int n_size, unsigned int s_size);
 
 int main(int argc, char *argv[])
 {
@@ -58,10 +58,9 @@ int main(int argc, char *argv[])
     trace_file = argv[argc - 1];
 
     // resize lists
-    dispatch_queue.resize(peak_rate * 2);
-    schedule_queue.resize(schedule_size);
-    ex_queue.resize(peak_rate + 1);
-    
+    //dispatch_queue.resize(peak_rate * 2);
+    //schedule_queue.resize(schedule_size);
+    //ex_queue.resize(peak_rate + 1);
 
     std::cout << dispatch_queue.size() << std::endl;
     std::cout << ex_queue.size() << std::endl;
@@ -133,16 +132,16 @@ int main(int argc, char *argv[])
     }*/
     while (cycle_count < file_content.size())
     {
-        execute();
-        issue();
-        //dispatch();
-        //fetch();
+        execute(peak_rate, schedule_size);
+        issue(peak_rate, schedule_size);
+        //dispatch(peak_rate, schedule_size);
+        //fetch(peak_rate, schedule_size);
 
         cycle_count++;
     }
 }
 
-void execute()
+void execute(unsigned int n_size, unsigned int s_size)
 {
     for (int i = 0; i < ex_queue.size(); i++)
     {
@@ -150,7 +149,7 @@ void execute()
         {
             if (ex_queue[i].EX_duration == ex_queue[i].ex_stall)
             {
-                ex_queue[i].state == "wb";
+                ex_queue[i].state = "wb";
 
                 // update sr
 
@@ -176,7 +175,7 @@ void execute()
     }
 }
 
-void issue()
+void issue(unsigned int n_size, unsigned int s_size)
 {
     for (int i = 0; i < schedule_queue.size(); i++)
     {
@@ -201,10 +200,38 @@ void issue()
             {
                 // update state since both src reg are ready
                 schedule_queue[i].state = "ex";
-                // push the updated instruction to ex queue
-                ex_queue.push_back(schedule_queue[i]);
-                //remove it from schedule queue
-                schedule_queue.erase(schedule_queue.begin() + (i - 1));
+
+                // push the updated instruction to ex queue till (n_size+1)
+                if (ex_queue.size() <= (n_size + 1))
+                {
+                    ex_queue.push_back(schedule_queue[i]);
+                    //remove it from schedule queue
+                    schedule_queue.erase(schedule_queue.begin() + (i - 1));
+                }
+            }
+        }
+    }
+}
+
+// fetch instruction to dispatch queue and change state to IF
+void fetch(unsigned int n_size, unsigned int s_size)
+{
+    for (int i = 0; i < n_size; i++)
+    {
+        if (dispatch_queue.size() <= (n_size * 2))
+        {
+            // push to dispatch queue
+            dispatch_queue.push_back(instuction_data[i]);
+        }
+        else
+        {
+            for (int i = 0; i < dispatch_queue.size(); i++)
+            {
+                if (dispatch_queue[i].state == "")
+                {
+                    // change empty state to IF state
+                    dispatch_queue[i].state = "if";
+                }
             }
         }
     }
