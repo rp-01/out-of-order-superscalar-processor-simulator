@@ -19,11 +19,12 @@ struct ROB
     std::string src1_flag = "ready";
     std::string src2_flag = "ready";
     std::string state = ""; // IF, ID, IS, EX, WB
+    unsigned int tag = 0;
     unsigned int IF_duration = 0;
     unsigned int ID_duration = 0;
     unsigned int IS_duration = 0;
     unsigned int EX_duration = 0;
-    unsigned int WB_duration = 0;
+    //unsigned int WB_duration = 0; // constant
     unsigned int IF_cycle = 0;
     unsigned int ID_cycle = 0;
     unsigned int IS_cycle = 0;
@@ -63,9 +64,9 @@ int main(int argc, char *argv[])
     //schedule_queue.resize(schedule_size);
     //ex_queue.resize(peak_rate + 1);
 
-    std::cout << dispatch_queue.size() << std::endl;
-    std::cout << ex_queue.size() << std::endl;
-    std::cout << schedule_queue.size() << std::endl;
+    //std::cout << dispatch_queue.size() << std::endl;
+    //std::cout << ex_queue.size() << std::endl;
+    //std::cout << schedule_queue.size() << std::endl;
 
     std::string token = "";
     std::vector<std::string> input;
@@ -120,8 +121,9 @@ int main(int argc, char *argv[])
         {
             instuction_data[i].ex_stall = 1;
         }
-        //instuction_data[i].dest_tag = i;
+        instuction_data[i].tag = i;
     }
+
     /*for (int i = 0; i < instuction_data.size(); i++)
     {
         std::cout << instuction_data[i].op_type << std::endl;
@@ -134,10 +136,11 @@ int main(int argc, char *argv[])
     while (cycle_count < file_content.size())
     {
         execute(peak_rate, schedule_size);
+        
         issue(peak_rate, schedule_size);
         dispatch(peak_rate, schedule_size);
         fetch(peak_rate, schedule_size);
-
+        std::cout << cycle_count << std::endl;
         cycle_count++;
     }
 }
@@ -151,6 +154,7 @@ void execute(unsigned int n_size, unsigned int s_size)
             if (ex_queue[i].EX_duration == ex_queue[i].ex_stall)
             {
                 ex_queue[i].state = "wb";
+                ex_queue[i].WB_cycle = cycle_count;
 
                 // update sr
 
@@ -165,7 +169,7 @@ void execute(unsigned int n_size, unsigned int s_size)
                         schedule_queue[j].src2_flag = "ready";
                     }
                 }
-                // store final details of instruction for output
+                // store instruction details for output
                 wb_queue.push_back(ex_queue[i]);
                 // ex_queue space
                 ex_queue.erase(ex_queue.begin() + (i - 1));
@@ -174,6 +178,10 @@ void execute(unsigned int n_size, unsigned int s_size)
             {
                 ex_queue[i].EX_duration++;
             }
+        }
+        if (ex_queue.size() == 0)
+        {
+            break;
         }
     }
 }
@@ -213,9 +221,14 @@ void issue(unsigned int n_size, unsigned int s_size)
                     schedule_queue.erase(schedule_queue.begin() + (i - 1));
                 }
             }
-            else if(schedule_queue[i].src1_flag != "ready" | schedule_queue[i].src2_flag != "ready"){
+            else if (schedule_queue[i].src1_flag != "ready" | schedule_queue[i].src2_flag != "ready")
+            {
                 schedule_queue[i].IS_duration++; // increment stall in IS state
             }
+        }
+        if (schedule_queue.size() == 0)
+        {
+            break;
         }
     }
 }
@@ -252,13 +265,13 @@ void dispatch(unsigned int n_size, unsigned int s_size)
         {
             if (schedule_queue.size() < s_size)
             {
-                dispatch_queue[i].state = "is"; // change state to IS
+                dispatch_queue[i].state = "is";           // change state to IS
                 dispatch_queue[i].IS_cycle = cycle_count; // capture cycle count at state change
 
                 schedule_queue.push_back(dispatch_queue[i]);
                 dispatch_queue.erase(dispatch_queue.begin() + (i - 1)); // free dispatch queue space
             }
-            else if(schedule_queue.size() == s_size) // if schedue queue full
+            else if (schedule_queue.size() == s_size) // if schedue queue full
             {
                 //increment stall in ID state
                 dispatch_queue[i].ID_duration++;
@@ -268,8 +281,12 @@ void dispatch(unsigned int n_size, unsigned int s_size)
         {
             dispatch_queue[i].state = "id";
             dispatch_queue[i].IF_duration++;
-            
+
             dispatch_queue[i].ID_cycle = cycle_count; // capture cycle count at state change to ID
+        }
+        if (dispatch_queue.size() == 0)
+        {
+            break;
         }
     }
 }
