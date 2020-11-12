@@ -34,7 +34,7 @@ struct ROB
     unsigned int ex_stall = 0;
 };
 
-std::vector<ROB> instuction_data;
+std::vector<ROB> instruction_data;
 std::vector<ROB> dispatch_queue;
 std::vector<ROB> schedule_queue;
 std::vector<ROB> ex_queue;
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
         std::cout << "**Please make sure that the trace files are in the same directory as sim executable.**" << std::endl;
     }
 
-    instuction_data.resize(file_content.size());
+    instruction_data.resize(file_content.size());
 
     for (int i = 0; i < file_content.size(); i++)
     {
@@ -105,43 +105,59 @@ int main(int argc, char *argv[])
 
             input.push_back(token);
         }
-        std::stringstream(input[1]) >> instuction_data[i].op_type;
-        std::stringstream(input[2]) >> instuction_data[i].dest_reg;
-        std::stringstream(input[3]) >> instuction_data[i].src_reg1;
-        std::stringstream(input[4]) >> instuction_data[i].src_reg2;
-        if (instuction_data[i].op_type == 0)
+        std::stringstream(input[1]) >> instruction_data[i].op_type;
+        std::stringstream(input[2]) >> instruction_data[i].dest_reg;
+        std::stringstream(input[3]) >> instruction_data[i].src_reg1;
+        std::stringstream(input[4]) >> instruction_data[i].src_reg2;
+        if (instruction_data[i].op_type == 0)
         {
-            instuction_data[i].ex_stall = 1;
+            instruction_data[i].ex_stall = 1;
         }
-        else if (instuction_data[i].op_type == 1)
+        else if (instruction_data[i].op_type == 1)
         {
-            instuction_data[i].ex_stall = 1;
+            instruction_data[i].ex_stall = 1;
         }
-        else if (instuction_data[i].op_type == 2)
+        else if (instruction_data[i].op_type == 2)
         {
-            instuction_data[i].ex_stall = 1;
+            instruction_data[i].ex_stall = 1;
         }
-        instuction_data[i].tag = i;
+        instruction_data[i].tag = i;
     }
 
-    /*for (int i = 0; i < instuction_data.size(); i++)
+    /*for (int i = 0; i < instruction_data.size(); i++)
     {
-        std::cout << instuction_data[i].op_type << std::endl;
-        std::cout << instuction_data[i].dest_reg << std::endl;
-        std::cout << instuction_data[i].src_reg1 << std::endl;
-        std::cout << instuction_data[i].src_reg2 << std::endl;
-        std::cout << instuction_data[i].tag << std::endl;
+        std::cout << instruction_data[i].op_type << std::endl;
+        std::cout << instruction_data[i].dest_reg << std::endl;
+        std::cout << instruction_data[i].src_reg1 << std::endl;
+        std::cout << instruction_data[i].src_reg2 << std::endl;
+        std::cout << instruction_data[i].tag << std::endl;
 
     }*/
-    while (cycle_count < file_content.size())
+    /*for (int i = 0; i < 4; i++)
+    {
+        std::cout << "tag: " << instruction_data[i].tag << "fu{" << instruction_data[i].op_type << "} "
+                  << "src{" << instruction_data[i].src_reg1 << "," << instruction_data[i].src_reg2 << "}" << std::endl;
+    }*/
+
+    while (wb_queue.size() < 10000)
     {
         execute(peak_rate, schedule_size);
-        
         issue(peak_rate, schedule_size);
         dispatch(peak_rate, schedule_size);
         fetch(peak_rate, schedule_size);
-        std::cout << cycle_count << std::endl;
+        //std::cout << cycle_count << std::endl;
+        // incremeant cycle
+        std::cout << "wb_queue queue size: " << dispatch_queue.size() << std::endl;
         cycle_count++;
+        
+        
+    }
+    std::cout << "wb_queu size = " << wb_queue.size() << std::endl;
+    for (int i = 0; i < wb_queue.size(); i++)
+    {
+        std::cout << "tag: " << wb_queue[i].tag << "fu{" << wb_queue[i].op_type << "} "
+                  << "src{" << wb_queue[i].src_reg1 << "," << wb_queue[i].src_reg2
+                  << "}" << std::endl;
     }
 }
 
@@ -160,11 +176,11 @@ void execute(unsigned int n_size, unsigned int s_size)
 
                 for (int j = 1; j < schedule_queue.size(); j++)
                 {
-                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1)
+                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1 && schedule_queue[i].dest_reg != -1)
                     {
                         schedule_queue[j].src1_flag = "ready";
                     }
-                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2)
+                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2 && schedule_queue[i].dest_reg != -1)
                     {
                         schedule_queue[j].src2_flag = "ready";
                     }
@@ -172,7 +188,8 @@ void execute(unsigned int n_size, unsigned int s_size)
                 // store instruction details for output
                 wb_queue.push_back(ex_queue[i]);
                 // ex_queue space
-                ex_queue.erase(ex_queue.begin() + (i - 1));
+
+                ex_queue.erase(ex_queue.begin() + i);
             }
             else
             {
@@ -192,11 +209,11 @@ void issue(unsigned int n_size, unsigned int s_size)
     {
         for (int j = 1; j < schedule_queue.size(); j++)
         {
-            if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1)
+            if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1 && schedule_queue[i].dest_reg != -1)
             {
                 schedule_queue[j].src1_flag = "not";
             }
-            if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2)
+            if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2 && schedule_queue[i].dest_reg != -1)
             {
                 schedule_queue[j].src2_flag = "not";
             }
@@ -218,7 +235,7 @@ void issue(unsigned int n_size, unsigned int s_size)
                 {
                     ex_queue.push_back(schedule_queue[i]);
                     //free schedule_queue space
-                    schedule_queue.erase(schedule_queue.begin() + (i - 1));
+                    schedule_queue.erase(schedule_queue.begin() + i);
                 }
             }
             else if (schedule_queue[i].src1_flag != "ready" | schedule_queue[i].src2_flag != "ready")
@@ -240,20 +257,17 @@ void fetch(unsigned int n_size, unsigned int s_size)
     {
         if (dispatch_queue.size() <= (n_size * 2))
         {
-            // push to dispatch queue
-            dispatch_queue.push_back(instuction_data[i]);
-        }
-        else
-        {
-            for (int i = 0; i < dispatch_queue.size(); i++)
-            {
-                if (dispatch_queue[i].state == "")
-                {
-                    // change empty state to IF state
-                    dispatch_queue[i].state = "if";
-                    dispatch_queue[i].IF_cycle = cycle_count; // capture cycle count at state change to IF
-                }
+            if(instruction_data.empty()){
+                break;
             }
+            // push to dispatch queue
+            dispatch_queue.push_back(instruction_data[0]);
+
+            // change empty state to IF state
+            dispatch_queue[i].state = "if";
+            dispatch_queue[i].IF_cycle = cycle_count; // capture cycle count at state change to IF
+            instruction_data.erase(instruction_data.begin());
+            
         }
     }
 }
@@ -269,7 +283,7 @@ void dispatch(unsigned int n_size, unsigned int s_size)
                 dispatch_queue[i].IS_cycle = cycle_count; // capture cycle count at state change
 
                 schedule_queue.push_back(dispatch_queue[i]);
-                dispatch_queue.erase(dispatch_queue.begin() + (i - 1)); // free dispatch queue space
+                dispatch_queue.erase(dispatch_queue.begin() + i); // free dispatch queue space
             }
             else if (schedule_queue.size() == s_size) // if schedue queue full
             {
