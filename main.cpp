@@ -51,7 +51,7 @@ void execute(unsigned int n_size, unsigned int s_size);
 void issue(unsigned int n_size, unsigned int s_size);
 void dispatch(unsigned int n_size, unsigned int s_size);
 void fetch(unsigned int n_size, unsigned int s_size);
-
+bool sort_tag(const ROB &x, const ROB &y);
 int main(int argc, char *argv[])
 {
     char *pCh;
@@ -115,15 +115,15 @@ int main(int argc, char *argv[])
         }
         else if (instruction_data[i].op_type == 1)
         {
-            instruction_data[i].ex_stall = 1;
+            instruction_data[i].ex_stall = 2;
         }
         else if (instruction_data[i].op_type == 2)
         {
-            instruction_data[i].ex_stall = 1;
+            instruction_data[i].ex_stall = 5;
         }
         instruction_data[i].tag = i;
     }
-
+    int total_instruction = instruction_data.size();
     /*for (int i = 0; i < instruction_data.size(); i++)
     {
         std::cout << instruction_data[i].op_type << std::endl;
@@ -139,25 +139,50 @@ int main(int argc, char *argv[])
                   << "src{" << instruction_data[i].src_reg1 << "," << instruction_data[i].src_reg2 << "}" << std::endl;
     }*/
 
-    while (wb_queue.size() < 10000)
+    while (wb_queue.size() < total_instruction)
     {
         execute(peak_rate, schedule_size);
         issue(peak_rate, schedule_size);
         dispatch(peak_rate, schedule_size);
         fetch(peak_rate, schedule_size);
+        
+        //dispatch(peak_rate, schedule_size);
+        //issue(peak_rate, schedule_size);
+        //execute(peak_rate, schedule_size);
+
         //std::cout << cycle_count << std::endl;
         // incremeant cycle
-        std::cout << "wb_queue queue size: " << dispatch_queue.size() << std::endl;
+        //std::cout << "wb_queue queue size: " << wb_queue.size() << std::endl;
+        //std::cout << "is_cycle : " << cycle_count << std::endl;
         cycle_count++;
-        
-        
+        //std::cout << "schedule queue size = " << schedule_queue.size() << std::endl;
+        /*if(cycle_count == 4){
+            break;
+        }*/
     }
-    std::cout << "wb_queu size = " << wb_queue.size() << std::endl;
+    std::cout << "ex size " << ex_queue.size() << std::endl;
+
+    //std::cout << "schedule queue size = " << schedule_queue.size() << std::endl;
+    std::cout << "schedule queue is cycle = " << schedule_queue[0].IS_cycle << std::endl;
+    std::cout << "schedule queue is cycle = " << schedule_queue[1].IS_cycle << std::endl;
+    std::cout << "schedule queue is cycle = " << schedule_queue[2].IS_cycle << std::endl;
+    std::cout << "schedule queue is cycle = " << schedule_queue[3].IS_cycle << std::endl;
+    std::sort(wb_queue.begin(), wb_queue.end(), sort_tag);
     for (int i = 0; i < wb_queue.size(); i++)
     {
-        std::cout << "tag: " << wb_queue[i].tag << "fu{" << wb_queue[i].op_type << "} "
+        // 0 fu{0} src{29,14} dst{-1} IF{0,1} ID{1,1} IS{2,1} EX{3,1} WB{4,1}
+        std::cout << wb_queue[i].tag << "fu{" << wb_queue[i].op_type << "} "
                   << "src{" << wb_queue[i].src_reg1 << "," << wb_queue[i].src_reg2
-                  << "}" << std::endl;
+                  << "} "
+                  << "dst{" << wb_queue[i].dest_reg << "} "
+                  << "IF{" << wb_queue[i].IF_cycle << "," << wb_queue[i].IF_duration << "} "
+                  << "ID{" << wb_queue[i].ID_cycle << "," << wb_queue[i].ID_duration << "} "
+                  << "IS{" << wb_queue[i].IS_cycle << "," << wb_queue[i].IS_duration << "} "
+                  << "EX{" << wb_queue[i].EX_cycle << "," << wb_queue[i].EX_duration << "} "
+                  << "WB{" << wb_queue[i].WB_cycle << ","
+                  << "1"
+                  << "} "
+                  << std::endl;
     }
 }
 
@@ -223,29 +248,31 @@ void issue(unsigned int n_size, unsigned int s_size)
     {
         if (schedule_queue[i].state == "is")
         {
+            schedule_queue[i].IS_duration++;
             //check if both regs are ready
             if (schedule_queue[i].src1_flag == "ready" & schedule_queue[i].src2_flag == "ready")
             {
-                // update state since both src reg are ready
-                schedule_queue[i].state = "ex";
-                schedule_queue[i].EX_cycle = cycle_count;
 
                 // push the updated instruction to ex queue till (n_size+1)
-                if (ex_queue.size() <= (n_size + 1))
+                if (ex_queue.size() < (n_size + 1))
                 {
+                    // update state since both src reg are ready
+                    schedule_queue[i].state = "ex";
+                    schedule_queue[i].EX_cycle = cycle_count;
                     ex_queue.push_back(schedule_queue[i]);
                     //free schedule_queue space
-                    schedule_queue.erase(schedule_queue.begin() + i);
+                    //schedule_queue.erase(schedule_queue.begin() + i);
                 }
             }
-            else if (schedule_queue[i].src1_flag != "ready" | schedule_queue[i].src2_flag != "ready")
+            /*else if (schedule_queue[i].src1_flag != "ready" | schedule_queue[i].src2_flag != "ready")
             {
                 schedule_queue[i].IS_duration++; // increment stall in IS state
-            }
+            }*/
         }
-        if (schedule_queue.size() == 0)
-        {
-            break;
+    }
+    for(int i = 0; i < schedule_queue.size(); i++){
+        if(schedule_queue[i].state == "ex"){
+            schedule_queue.erase(schedule_queue.begin() + i);
         }
     }
 }
@@ -257,7 +284,8 @@ void fetch(unsigned int n_size, unsigned int s_size)
     {
         if (dispatch_queue.size() <= (n_size * 2))
         {
-            if(instruction_data.empty()){
+            if (instruction_data.empty())
+            {
                 break;
             }
             // push to dispatch queue
@@ -266,8 +294,8 @@ void fetch(unsigned int n_size, unsigned int s_size)
             // change empty state to IF state
             dispatch_queue[i].state = "if";
             dispatch_queue[i].IF_cycle = cycle_count; // capture cycle count at state change to IF
+            dispatch_queue[i].IF_duration++;
             instruction_data.erase(instruction_data.begin());
-            
         }
     }
 }
@@ -283,7 +311,7 @@ void dispatch(unsigned int n_size, unsigned int s_size)
                 dispatch_queue[i].IS_cycle = cycle_count; // capture cycle count at state change
 
                 schedule_queue.push_back(dispatch_queue[i]);
-                dispatch_queue.erase(dispatch_queue.begin() + i); // free dispatch queue space
+                // dispatch_queue.erase(dispatch_queue.begin() + i); // free dispatch queue space
             }
             else if (schedule_queue.size() == s_size) // if schedue queue full
             {
@@ -294,13 +322,20 @@ void dispatch(unsigned int n_size, unsigned int s_size)
         else if (dispatch_queue[i].state == "if") // unconditional IF to ID transition
         {
             dispatch_queue[i].state = "id";
-            dispatch_queue[i].IF_duration++;
+            dispatch_queue[i].ID_duration++;
 
             dispatch_queue[i].ID_cycle = cycle_count; // capture cycle count at state change to ID
         }
-        if (dispatch_queue.size() == 0)
+    }
+    for (int i = 0; i < dispatch_queue.size(); i++)
+    {
+        if (dispatch_queue[i].state == "is")
         {
-            break;
+            dispatch_queue.erase(dispatch_queue.begin() + i); // free dispatch queue space
         }
     }
+}
+bool sort_tag(const ROB &x, const ROB &y)
+{
+    return x.tag < y.tag;
 }
