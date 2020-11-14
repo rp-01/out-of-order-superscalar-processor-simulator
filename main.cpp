@@ -18,13 +18,15 @@ struct ROB
     std::string dest_flag = "";
     std::string src1_flag = "ready";
     std::string src2_flag = "ready";
-    std::string state = ""; // IF, ID, IS, EX, WB
+    std::string state = "if"; // IF, ID, IS, EX, WB
     unsigned int tag = 0;
+    unsigned int src1_tag = 0;
+    unsigned int src2_tag = 0;
     unsigned int IF_duration = 0;
     unsigned int ID_duration = 0;
     unsigned int IS_duration = 0;
     unsigned int EX_duration = 0;
-    //unsigned int WB_duration = 0; // constant
+    unsigned int WB_duration = 0; // constant
     unsigned int IF_cycle = 0;
     unsigned int ID_cycle = 0;
     unsigned int IS_cycle = 0;
@@ -35,6 +37,7 @@ struct ROB
 };
 
 std::vector<ROB> instruction_data;
+
 std::vector<ROB> dispatch_queue;
 std::vector<ROB> schedule_queue;
 std::vector<ROB> ex_queue;
@@ -133,6 +136,7 @@ int main(int argc, char *argv[])
         std::cout << instruction_data[i].tag << std::endl;
 
     }*/
+
     /*for (int i = 0; i < 4; i++)
     {
         std::cout << "tag: " << instruction_data[i].tag << "fu{" << instruction_data[i].op_type << "} "
@@ -145,7 +149,7 @@ int main(int argc, char *argv[])
         issue(peak_rate, schedule_size);
         dispatch(peak_rate, schedule_size);
         fetch(peak_rate, schedule_size);
-        
+
         //dispatch(peak_rate, schedule_size);
         //issue(peak_rate, schedule_size);
         //execute(peak_rate, schedule_size);
@@ -153,20 +157,44 @@ int main(int argc, char *argv[])
         //std::cout << cycle_count << std::endl;
         // incremeant cycle
         //std::cout << "wb_queue queue size: " << wb_queue.size() << std::endl;
+        //std::cout << "dispatch queue size: " << dispatch_queue.size() << std::endl;
+        //std::cout << "schedule queue size: " << schedule_queue.size() << std::endl;
+        //std::cout << "ex queue size: " << ex_queue.size() << std::endl;
+        /*for(int i = 0; i < dispatch_queue.size(); i++){
+            std::cout << "dispatch queue state: " << dispatch_queue[i].state << std::endl;
+        }*/
+
         //std::cout << "is_cycle : " << cycle_count << std::endl;
         cycle_count++;
         //std::cout << "schedule queue size = " << schedule_queue.size() << std::endl;
-        /*if(cycle_count == 4){
+        /*if (cycle_count == 4)
+        {
             break;
         }*/
     }
-    std::cout << "ex size " << ex_queue.size() << std::endl;
+    /*for (int i = 0; i < schedule_queue.size(); i++)
+    {
+        std::cout << schedule_queue[i].tag << " state " << schedule_queue[i].state << std::endl;
+        //std::cout << "tag: " << schedule_queue[i].tag << std::endl;
+        std::cout << " src1 flag: " << schedule_queue[i].src1_flag << std::endl;
+        std::cout << " src2 flag: " << schedule_queue[i].src2_flag << std::endl;
+    }
+    std::cout << "ex queue..." << std::endl;
+    for (int i = 0; i < ex_queue.size(); i++)
+    {
+        std::cout << ex_queue[i].tag << " state " << ex_queue[i].state << std::endl;
+        //std::cout << "tag: " << schedule_queue[i].tag << std::endl;
+        std::cout << " src1 flag: " << ex_queue[i].src1_flag << std::endl;
+        std::cout << " src2 flag: " << ex_queue[i].src2_flag << std::endl;
+    }*/
+    //std::cout << "ex size " << ex_queue.size() << std::endl;
 
     //std::cout << "schedule queue size = " << schedule_queue.size() << std::endl;
-    std::cout << "schedule queue is cycle = " << schedule_queue[0].IS_cycle << std::endl;
-    std::cout << "schedule queue is cycle = " << schedule_queue[1].IS_cycle << std::endl;
-    std::cout << "schedule queue is cycle = " << schedule_queue[2].IS_cycle << std::endl;
-    std::cout << "schedule queue is cycle = " << schedule_queue[3].IS_cycle << std::endl;
+    //std::cout << "schedule queue is cycle = " << schedule_queue[0].IS_cycle << std::endl;
+    //std::cout << "schedule queue is cycle = " << schedule_queue[1].IS_cycle << std::endl;
+    //std::cout << "schedule queue is cycle = " << schedule_queue[2].IS_cycle << std::endl;
+    //std::cout << "schedule queue is cycle = " << schedule_queue[3].IS_cycle << std::endl;
+
     std::sort(wb_queue.begin(), wb_queue.end(), sort_tag);
     for (int i = 0; i < wb_queue.size(); i++)
     {
@@ -179,9 +207,7 @@ int main(int argc, char *argv[])
                   << "ID{" << wb_queue[i].ID_cycle << "," << wb_queue[i].ID_duration << "} "
                   << "IS{" << wb_queue[i].IS_cycle << "," << wb_queue[i].IS_duration << "} "
                   << "EX{" << wb_queue[i].EX_cycle << "," << wb_queue[i].EX_duration << "} "
-                  << "WB{" << wb_queue[i].WB_cycle << ","
-                  << "1"
-                  << "} "
+                  << "WB{" << wb_queue[i].WB_cycle << "," << wb_queue[i].WB_duration << "} "
                   << std::endl;
     }
 }
@@ -196,16 +222,16 @@ void execute(unsigned int n_size, unsigned int s_size)
             {
                 ex_queue[i].state = "wb";
                 ex_queue[i].WB_cycle = cycle_count;
-
+                ex_queue[i].WB_duration++;
                 // update sr
 
-                for (int j = 1; j < schedule_queue.size(); j++)
+                for (int j = 0; j < schedule_queue.size(); j++)
                 {
-                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1 && schedule_queue[i].dest_reg != -1)
+                    if (ex_queue[i].dest_reg == schedule_queue[j].src_reg1)
                     {
                         schedule_queue[j].src1_flag = "ready";
                     }
-                    if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2 && schedule_queue[i].dest_reg != -1)
+                    if (ex_queue[i].dest_reg == schedule_queue[j].src_reg2)
                     {
                         schedule_queue[j].src2_flag = "ready";
                     }
@@ -213,17 +239,34 @@ void execute(unsigned int n_size, unsigned int s_size)
                 // store instruction details for output
                 wb_queue.push_back(ex_queue[i]);
                 // ex_queue space
-
-                ex_queue.erase(ex_queue.begin() + i);
             }
             else
             {
                 ex_queue[i].EX_duration++;
             }
         }
-        if (ex_queue.size() == 0)
+    }
+
+    for (unsigned int i = 0; i < ex_queue.size();)
+    {
+        if (ex_queue[i].state == "wb")
+            ex_queue.erase(ex_queue.begin() + i);
+        else
+            i++;
+    }
+
+    for (int i = 0; i < wb_queue.size(); i++)
+    {
+        for (int j = 0; j < schedule_queue.size(); j++)
         {
-            break;
+            if (wb_queue[i].tag == schedule_queue[j].src1_tag)
+            {
+                schedule_queue[j].src1_flag = "ready";
+            }
+            if (wb_queue[i].tag == schedule_queue[j].src2_tag)
+            {
+                schedule_queue[j].src2_flag = "ready";
+            }
         }
     }
 }
@@ -236,11 +279,19 @@ void issue(unsigned int n_size, unsigned int s_size)
         {
             if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg1 && schedule_queue[i].dest_reg != -1)
             {
-                schedule_queue[j].src1_flag = "not";
+                if (schedule_queue[i].tag < schedule_queue[j].tag)
+                {
+                    schedule_queue[j].src1_flag = "not";
+                    schedule_queue[j].src1_tag = schedule_queue[i].tag;
+                }
             }
             if (schedule_queue[i].dest_reg == schedule_queue[j].src_reg2 && schedule_queue[i].dest_reg != -1)
             {
-                schedule_queue[j].src2_flag = "not";
+                if (schedule_queue[i].tag < schedule_queue[j].tag)
+                {
+                    schedule_queue[j].src2_flag = "not";
+                    schedule_queue[j].src2_tag = schedule_queue[i].tag;
+                }
             }
         }
     }
@@ -259,6 +310,7 @@ void issue(unsigned int n_size, unsigned int s_size)
                     // update state since both src reg are ready
                     schedule_queue[i].state = "ex";
                     schedule_queue[i].EX_cycle = cycle_count;
+                    schedule_queue[i].EX_duration++;
                     ex_queue.push_back(schedule_queue[i]);
                     //free schedule_queue space
                     //schedule_queue.erase(schedule_queue.begin() + i);
@@ -270,11 +322,22 @@ void issue(unsigned int n_size, unsigned int s_size)
             }*/
         }
     }
-    for(int i = 0; i < schedule_queue.size(); i++){
-        if(schedule_queue[i].state == "ex"){
+
+    for (unsigned int i = 0; i < schedule_queue.size();)
+    {
+        if (schedule_queue[i].state == "ex")
+            schedule_queue.erase(schedule_queue.begin() + i);
+        else
+            i++;
+    }
+
+    /*for (int i = 0; i < schedule_queue.size(); i++)
+    {
+        if (schedule_queue[i].state == "ex")
+        {
             schedule_queue.erase(schedule_queue.begin() + i);
         }
-    }
+    }*/
 }
 
 // fetch instruction to dispatch queue and change state to IF
@@ -289,12 +352,13 @@ void fetch(unsigned int n_size, unsigned int s_size)
                 break;
             }
             // push to dispatch queue
+            instruction_data[0].IF_cycle = cycle_count; // capture cycle count at state change to IF
+            instruction_data[0].IF_duration++;
             dispatch_queue.push_back(instruction_data[0]);
 
             // change empty state to IF state
-            dispatch_queue[i].state = "if";
-            dispatch_queue[i].IF_cycle = cycle_count; // capture cycle count at state change to IF
-            dispatch_queue[i].IF_duration++;
+            //dispatch_queue[i].state = "if";
+
             instruction_data.erase(instruction_data.begin());
         }
     }
@@ -327,12 +391,13 @@ void dispatch(unsigned int n_size, unsigned int s_size)
             dispatch_queue[i].ID_cycle = cycle_count; // capture cycle count at state change to ID
         }
     }
-    for (int i = 0; i < dispatch_queue.size(); i++)
+    
+    for (unsigned int i = 0; i < dispatch_queue.size();)
     {
         if (dispatch_queue[i].state == "is")
-        {
-            dispatch_queue.erase(dispatch_queue.begin() + i); // free dispatch queue space
-        }
+            dispatch_queue.erase(dispatch_queue.begin() + i);
+        else
+            i++;
     }
 }
 bool sort_tag(const ROB &x, const ROB &y)
