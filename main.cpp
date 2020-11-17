@@ -26,7 +26,7 @@ struct ROB
     unsigned int IF_duration = 0;
     unsigned int ID_duration = 0;
     unsigned int IS_duration = 0;
-    unsigned int EX_duration = 0;
+    unsigned int EX_duration = 1;
     unsigned int WB_duration = 0; // constant
     unsigned int IF_cycle = 0;
     unsigned int ID_cycle = 0;
@@ -219,6 +219,8 @@ int main(int argc, char *argv[])
                   << "WB{" << wb_queue[i].WB_cycle << "," << wb_queue[i].WB_duration << "} "
                   << std::endl;
     }
+    std::cout << wb_queue[29].tag <<std::endl;
+    std::cout << wb_queue[33].src1_tag << "  " << wb_queue[33].src2_tag << std::endl;
 }
 
 void execute(unsigned int n_size, unsigned int s_size)
@@ -319,7 +321,7 @@ void issue(unsigned int n_size, unsigned int s_size)
                     // update state since both src reg are ready
                     schedule_queue[i].state = "ex";
                     schedule_queue[i].EX_cycle = cycle_count;
-                    schedule_queue[i].EX_duration++;
+                    //schedule_queue[i].EX_duration++;
                     ex_queue.push_back(schedule_queue[i]);
                     //free schedule_queue space
                     //schedule_queue.erase(schedule_queue.begin() + i);
@@ -354,7 +356,7 @@ void fetch(unsigned int n_size, unsigned int s_size)
 {
     for (int i = 0; i < n_size; i++)
     {
-        if (dispatch_queue.size() <= (n_size * 2))
+        if (dispatch_queue.size() < (n_size * 2))
         {
             if (instruction_data.empty())
             {
@@ -404,16 +406,16 @@ void dispatch(unsigned int n_size, unsigned int s_size)
                             dispatch_queue[i].src2_flag = "not";
                         }
 
-                        if (schedule_queue[j].dest_reg == dispatch_queue[i].dest_reg && schedule_queue[j].dest_reg != -1)
+                        /*if (schedule_queue[j].dest_reg == dispatch_queue[i].dest_reg && schedule_queue[j].dest_reg != -1)
                         {
                             break;
-                        }
+                        }*/
                     }
                 }
 
                 if (!ex_queue.empty())
                 {
-                    std::sort(wb_queue.begin(), wb_queue.end(), sort_tag);
+                    std::sort(ex_queue.begin(), ex_queue.end(), sort_tag);
                     for (int j = 0; j < ex_queue.size(); j++)
                     {
                         if (ex_queue[j].dest_reg == dispatch_queue[i].src_reg1 && ex_queue[j].dest_reg != -1)
@@ -427,10 +429,10 @@ void dispatch(unsigned int n_size, unsigned int s_size)
                             dispatch_queue[i].src2_flag = "not";
                         }
 
-                        if (ex_queue[j].dest_reg == dispatch_queue[i].dest_reg && ex_queue[j].dest_reg != -1)
+                        /*if (ex_queue[j].dest_reg == dispatch_queue[i].dest_reg && ex_queue[j].dest_reg != -1)
                         {
                             break;
-                        }
+                        }*/
                     }
                 }
 
