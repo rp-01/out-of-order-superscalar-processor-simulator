@@ -1,5 +1,8 @@
 *.txt
 *.odt
-*.pdf
 *.o
 *.exe
+out
+out1
+*.doc
+*.ods
